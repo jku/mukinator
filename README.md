@@ -28,19 +28,23 @@ All of the events are Bluetooth attribute writes to one single handle. First and
 
 At this point I did a bit of math: According to manufacturers Facebook page the screen is 176x264 pixels. At bitdepth 1 that's 46464 bits or 5808 bytes. If you divide 5808 bytes into 20 byte frames you end up with _291_ frames, exactly as many as are sent over Bluetooth. That's unlikely to be a coincidence...
 
-I decided to throw something on the wall and see if it sticks: Googling lead me to gatttool (and hcitool) from Bluez project as the quick-and-dirty options on Linux. After a bit of reading it seemed clear that I only needed the Bluetooth address and a "ATT characteristic handle" to write with gatttool and I already had both from wireshark.
+I decided to throw something on the wall and see if it sticks: Googling lead me to gatttool (and hcitool) from Bluez project as the quick-and-dirty options on Linux. After a bit of reading it seemed clear that I only needed the Bluetooth address and a "ATT characteristic handle" to write with gatttool. Luckily I already had both from wireshark.
 
-I tried entering the write commands manually with gatttool but that didn't work: I probably type too slowly and the device disconnects to save power. Next I wrote a script that uses the start and stop values from the sniffed log and otherwise just writes a lot of 0xF0 values:
-
-	import pexpect
+I tried entering some write commands manually with gatttool but that didn't work: I probably type too slowly and the device disconnects to save power. Next I wrote a gatttool-abusing script that uses the start and stop values from the sniffed log and otherwise just writes a lot of 0xF0 values:
 
 	console = pexpect.spawn('gatttool -I -t random -b C4:4E:CC:58:F2:08', timeout=3)
+	console.expect('\[LE\]>')
 	console.sendline('connect')
+	console.expect('\[LE\]>')
 
 	console.sendline('char-write-req 0x000d 74')
+	console.expect('\[LE\]>')
 	for i in range(0,291):
 		console.sendline('char-write-cmd 0x000d F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0')
+		console.expect('\[LE\]>')
+
 	console.sendline('char-write-req 0x000d 64')
+	console.expect('\[LE\]>')
 
 After a few failed attempts and bug fixes the screen flashed and updated to a striped image!
 
@@ -52,4 +56,4 @@ So the 291 frames are indeed for image data and the data seems to be simply bina
 
 # Sending my own pictures with Bluez and Imagemagick
 
-_Working on this..._
+_Working on this part..._
