@@ -16,9 +16,9 @@ Anyone within Bluetooth LE distance can send images to my coffee mug :/
 
 ## Figuring it out
 
-Muki documentation mentions it uses Bluetooth Low-Energy and I knew Android allows Bluetooth sniffing see [Hpw to enable Bluetooth HCI snoop log](https://developer.android.com/studio/debug/dev-options.html) so I used the Muki app to upload an image to the mug and then moved the log to my laptop via Google Drive.
+Muki documentation mentions it uses Bluetooth Low-Energy and I knew Android allows Bluetooth sniffing (see [How to enable Bluetooth HCI snoop log](https://developer.android.com/studio/debug/dev-options.html)). So I did that, used the Muki app to upload an image to the mug and then moved the log file to my laptop via Google Drive.
 
-I had a look at the log with Wireshark: It contained about a thousand frames but scrolling through revealed only one remote MAC address. This is the beginning of the log when filtering with just this MAC as destination:
+I had a look at the log with Wireshark: It contained about a thousand frames but scrolling through revealed only one remote Bluetooth address. This is the beginning of the log when filtering with just this address as destination:
 
 ![Wireshark log](images/bt-log.png)
 
@@ -37,7 +37,7 @@ I tried entering the write commands manually with gatttool but that didn't work:
 	console = pexpect.spawn('gatttool -I -t random -b C4:4E:CC:58:F2:08', timeout=3)
 	console.sendline('connect')
 
-		console.sendline('char-write-req 0x000d 74')
+	console.sendline('char-write-req 0x000d 74')
 	for i in range(0,291):
 		console.sendline('char-write-cmd 0x000d F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0')
 	console.sendline('char-write-req 0x000d 64')
