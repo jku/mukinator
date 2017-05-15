@@ -1,37 +1,22 @@
-## Welcome to GitHub Pages
+# Hacking Paulig Muki for fun and profit
 
-You can use the [editor on GitHub](https://github.com/jku/mukinator/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
+I got my hands on a IOT-enabled coffee mug, Muki from Paulig. There's an e-ink display on the side and you can use your phone to upload images to the mug. The cool (or rather hot) thing is that this is all powered by the heat of the coffee: there's no battery or power plug.
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+I did what one does with new IOT devices: had a look at how it works and tried to reproduce it without the app.
 
-### Markdown
+## The Good
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+Sending images to the mug is pretty easy. Bluez (the bluetooth stack) and ImageMagick (the image manipulation toolkit) do all the heavy lifting I needed on linux.
 
-```markdown
-Syntax highlighted code block
+## The Bad
 
-# Header 1
-## Header 2
-### Header 3
+Anyone within Bluetooth LE distance can send images to my coffee mug :/
 
-- Bulleted
-- List
+## The Details
 
-1. Numbered
-2. List
+Muki documentation mentions it uses Bluetooth Low-Energy and I knew Android allows Bluetooth sniffing see [Hpw to enable Bluetooth HCI snoop log](https://developer.android.com/studio/debug/dev-options.html) so I used the Muki app to upload an image to the mug and then moved the log to my laptop via Google Drive.
 
-**Bold** and _Italic_ and `Code` text
+I had a look at the log with Wireshark: about a thousand frames but scrolling through revealed only one remote MAC address. This is the beginning of the log when filtering with just this MAC as destination:
 
-[Link](url) and ![Image](src)
-```
+![Wireshark log](images/bt-log.png)
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/jku/mukinator/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
