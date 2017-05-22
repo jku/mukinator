@@ -101,7 +101,9 @@ I did not want to continue abusing gatttool so read up on Bluez D-Bus API. There
 
 So the characteristic service UUID is 06640002-9087-04a8-658f-ce44cb96b4a1.
 
-Finding the service is not too difficult for someone with D-Bus experience but it does take quite a bit of code -- I'm showing only some interesting bits. First I find a Bluetooth device with an address that starts with 'c4:4e:cc':
+Finding the service is not too difficult for someone with D-Bus experience but it does take quite a bit of code -- I'm showing only some interesting bits in this document. All of the Bluez details are from the [documentation](https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc) or from [example-gatt-client](https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/test/example-gatt-client).
+
+First I use the Bluez ObjectManager to find a Bluetooth device with an address that starts with 'c4:4e:cc':
 
     objects = self.bluez_manager.GetManagedObjects()
 
@@ -113,7 +115,7 @@ Finding the service is not too difficult for someone with D-Bus experience but i
             self.device = dbus.Interface(self.bus.get_object('org.bluez', path),
                                          'org.bluez.Device1')
 
-The `ObjectManager.InterfacesAdded` signal will tell me when the device exposes a new service (this happens a short while after connecting): 
+The `ObjectManager.InterfacesAdded` signal will tell me when the device exposes a new service (this happens a short while after connecting to the device): 
 
     self.bluez_manager.connect_to_signal('InterfacesAdded',
                                          self._object_manager_interfaces_added)
@@ -133,7 +135,7 @@ In the InterfacesAdded signal handler I just make sure it's the right kind of se
 
     self._write_to_muki(dbus.Interface(char_object, 'org.bluez.GattCharacteristic1'))
 
-Finally I use `GattCharacteristic1.WriteValue()` to write the start command (0x74), the image data, and the end command (0x64):
+Finally in _write_to_muki() I use `GattCharacteristic1.WriteValue()` to write the start command (0x74), the image data, and the end command (0x64):
 
     characteristic.WriteValue(_dbus_array([0x74]),
                               _dbus_dict({}))
