@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+
+import sys
+import argparse
+import dbus
+from dbus.exceptions import DBusException
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib
+
+import muki_img
+
+# Explicit constructors are needed because otherwise
+# the signature might not be guessable
+def _dbus_array(value):
+    return dbus.Array(value, signature="y")
+def _dbus_dict(value):
+    return dbus.Dictionary(value, signature="sv")
+
+class Muki(object):
+    def __init__(self, mainloop, image_filename):
+        self.mainloop = mainloop
+        self.device = None
+
+        print("Loading '%s'..." % image_filename)
+        self.image = muki_img.load_one_bit_byte_array(image_filename)
+        if self.image is None:
+            print("Failed to load image")
+            return
+
+        assert len(self.image) == 5808
+
+        self.bus = dbus.SystemBus()
+        self.bluez_manager = dbus.Interface(self.bus.get_object('org.bluez', '/'),
+                                            'org.freedesktop.DBus.ObjectManager')
+
+        # Find the device so we can connect
+        self._find_muki_device()
+        if self.device is None:
+            print("No Muki found")
+            return
+
+        try:
+            # Handle any Muki characteristics that might already be available
+            GLib.idle_add(self._process_interfaces)
+            # handle any new Muki characteristics that appear
+            self.bluez_manager.connect_to_signal('InterfacesAdded',
+                                                 self._object_manager_interfaces_added)
+            self.device.Connect(timeout=3)
+        except DBusException:
+            print("Connecting to Muki failed")
+            self.device = None
+
+    def __del__(self):
+        if self.device is not None:
+            self.device.Disconnect()
+
+    def _write_to_muki(self, characteristic):
+        print("Writing image to Muki...")
+        characteristic.WriteValue(_dbus_array([0x74]),
+                                  _dbus_dict({}))
+
+        # Write image in 291 chunks, 20 bytes at time
+        index = 0
+        for i in range(0, 291):
+            data = self.image[index:index + 20]
+            # last one may be too short
+            while len(data) < 20:
+                data.append(0xFF)
+
+            characteristic.WriteValue(_dbus_array(data),
+                                      _dbus_dict({}))
+            index = index + 20
+
+        characteristic.WriteValue(_dbus_array([0x64]),
+                                  _dbus_dict({}))
+
+        print ("Done!")
+        self.mainloop.quit()
+
+    def _handle_new_interfaces(self, path, interfaces):
+        if 'org.bluez.GattCharacteristic1' not in interfaces.keys():
+            return
+
+        char_object = self.bus.get_object('org.bluez', path)
+        props = char_object.GetAll('org.bluez.GattCharacteristic1',
+                                    dbus_interface='org.freedesktop.DBus.Properties')
+        uuid = props['UUID']
+        if uuid.lower() != '06640002-9087-04a8-658f-ce44cb96b4a1':
+            return
+
+        flags = props['Flags']
+        print("Located Muki characteristic %s [%s]" % (uuid, ', '.join(flags)))
+
+        self._write_to_muki(dbus.Interface(char_object, 'org.bluez.GattCharacteristic1'))
+
+
+    def _process_interfaces(self):
+        objects = self.bluez_manager.GetManagedObjects()
+        for path, interfaces in objects.items():
+            self._handle_new_interfaces(path, interfaces)
+
+    def _object_manager_interfaces_added(self, path, interfaces):
+        self._handle_new_interfaces(path, interfaces)
+
+    def _find_muki_device(self):
+        objects = self.bluez_manager.GetManagedObjects()
+
+        for path, interfaces in objects.items():
+            if 'org.bluez.Device1' not in interfaces.keys():
+                continue
+            address = interfaces['org.bluez.Device1']['Address']
+            if address.lower().startswith('c4:4e:cc'):
+                print("Found Muki device %s" % path)
+                self.device = dbus.Interface(self.bus.get_object('org.bluez', path),
+                                             'org.bluez.Device1')
+
+def main():
+    DBusGMainLoop(set_as_default=True)
+    mainloop = GLib.MainLoop()
+
+    parser = argparse.ArgumentParser(description='Upload photos to Muki')
+    parser.add_argument('filename', help='Image file to upload')
+    args = parser.parse_args()
+
+    muki = Muki(mainloop, args.filename)
+    if muki.image is None or muki.device is None:
+        return
+
+    mainloop.run()
+
+if __name__ == '__main__':
+    main()
+
